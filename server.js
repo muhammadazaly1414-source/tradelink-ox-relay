@@ -45,6 +45,15 @@ const server = http.createServer((req, res) => {
     if (req.headers["content-type"]) {
       forwardHeaders["Content-Type"] = req.headers["content-type"];
     }
+    if (req.headers["origin"]) {
+      forwardHeaders["Origin"] = req.headers["origin"];
+    }
+    if (req.headers["referer"]) {
+      forwardHeaders["Referer"] = req.headers["referer"];
+    }
+    if (body.length > 0) {
+      forwardHeaders["Content-Length"] = String(body.length);
+    }
 
     const oxReq = https.request(
       {

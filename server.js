@@ -30,10 +30,12 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  const startedAt = Date.now();
   const chunks = [];
   req.on("data", (chunk) => chunks.push(chunk));
   req.on("end", () => {
     const body = Buffer.concat(chunks);
+    console.log(`-> ${req.method} ${req.url} body=${body.length}b`);
 
     // Forward every incoming header as-is, except hop-by-hop / relay-only
     // ones - a hardcoded per-header whitelist here silently drops whatever
@@ -66,14 +68,21 @@ const server = http.createServer((req, res) => {
         const responseChunks = [];
         oxRes.on("data", (chunk) => responseChunks.push(chunk));
         oxRes.on("end", () => {
+          const responseBody = Buffer.concat(responseChunks);
+          const ms = Date.now() - startedAt;
+          console.log(
+            `<- ${req.method} ${req.url} status=${oxRes.statusCode} ${ms}ms body=${responseBody.length}b` +
+              (oxRes.statusCode >= 400 ? ` preview=${JSON.stringify(responseBody.slice(0, 200).toString())}` : "")
+          );
           res.writeHead(oxRes.statusCode, {
             "Content-Type": oxRes.headers["content-type"] || "application/json",
           });
-          res.end(Buffer.concat(responseChunks));
+          res.end(responseBody);
         });
       }
     );
     oxReq.on("error", (err) => {
+      console.log(`xx ${req.method} ${req.url} upstream error after ${Date.now() - startedAt}ms: ${err.message}`);
       res.writeHead(502, { "Content-Type": "text/plain" });
       res.end(`relay: upstream error: ${err.message}`);
     });

@@ -35,24 +35,24 @@ const server = http.createServer((req, res) => {
   req.on("end", () => {
     const body = Buffer.concat(chunks);
 
-    const forwardHeaders = {
-      Accept: req.headers["accept"] || "application/json",
-      "User-Agent": "TradeLink OX Relay",
-    };
-    if (req.headers["auth-token"]) {
-      forwardHeaders["auth-token"] = req.headers["auth-token"];
+    // Forward every incoming header as-is, except hop-by-hop / relay-only
+    // ones - a hardcoded per-header whitelist here silently drops whatever
+    // the caller adds next and is easy to forget to update.
+    const dropHeaders = new Set(["host", "connection", "x-relay-key", "content-length"]);
+    const forwardHeaders = {};
+    for (const [key, value] of Object.entries(req.headers)) {
+      if (!dropHeaders.has(key.toLowerCase())) {
+        forwardHeaders[key] = value;
+      }
     }
-    if (req.headers["content-type"]) {
-      forwardHeaders["Content-Type"] = req.headers["content-type"];
+    if (!forwardHeaders["accept"]) {
+      forwardHeaders["accept"] = "application/json";
     }
-    if (req.headers["origin"]) {
-      forwardHeaders["Origin"] = req.headers["origin"];
-    }
-    if (req.headers["referer"]) {
-      forwardHeaders["Referer"] = req.headers["referer"];
+    if (!forwardHeaders["user-agent"]) {
+      forwardHeaders["user-agent"] = "TradeLink OX Relay";
     }
     if (body.length > 0) {
-      forwardHeaders["Content-Length"] = String(body.length);
+      forwardHeaders["content-length"] = String(body.length);
     }
 
     const oxReq = https.request(
